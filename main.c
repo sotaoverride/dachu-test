@@ -15,13 +15,15 @@
 #define VM_PATH "/report"
 #define REED_PIN 14
 #define QUEUE_SIZE 20
+#define DEBOUNCE_TIME_MS 50  // Standard for mechanical reed switches
 
 typedef struct { bool state; uint32_t time; } Event;
 Event event_queue[QUEUE_SIZE];
 volatile int q_read = 0;
 volatile int q_write = 0;
 bool is_net_busy = false;
-
+bool current_state = false;
+uint32_t last_debounce = 0;
 // --- 1. THE INTERRUPT (ULTRA FAST) ---
 void gpio_callback(uint gpio, uint32_t events) {
     bool s = gpio_get(REED_PIN);
@@ -30,11 +32,13 @@ void gpio_callback(uint gpio, uint32_t events) {
     printf("\n[!] INTERRUPT: %s", s ? "OPEN" : "CLOSED");
     
     int next = (q_write + 1) % QUEUE_SIZE;
-    if (next != q_read) {
+    if (next != q_read && s != current_state && (to_ms_since_boot(get_absolute_time()) - last_debounce) > DEBOUNCE_TIME_MS)  {
         event_queue[q_write].state = s;
         event_queue[q_write].time = to_ms_since_boot(get_absolute_time());
         q_write = next;
-    } else {
+	last_debounce = to_ms_since_boot(get_absolute_time();
+	current_state = s;
+    } else if (next == q_read) {
         printf(" (Queue Full!)");
     }
 }
